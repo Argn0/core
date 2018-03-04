@@ -19,7 +19,7 @@ const packageJson = require('../package.json');
 const cacheFunctions = require('../store/cacheFunctions');
 const params = require('./params');
 const {
-  teamObject, matchObject, heroObject, playerObject,
+  teamObject, matchObject, heroObject, playerObject, itemTimingsObject,
 } = require('./objects');
 
 const redisCount = utility.redisCount;
@@ -3904,46 +3904,15 @@ Please keep request rate to approximately 3/s.
         },
       },
     },
-    '/live': {
+    '/scenarios/{hero_id}/itemTimings': {
       get: {
-        summary: 'GET /live',
-        description: 'Get top currently ongoing live games',
-        tags: ['live'],
-        parameters: [],
-        responses: {
-          200: {
-            description: 'Success',
-            schema: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                },
-              },
-            },
-          },
-        },
-        route: () => '/live',
-        func: (req, res, cb) => {
-          redis.zrangebyscore('liveGames', '-inf', 'inf', (err, rows) => {
-            if (err) {
-              return cb(err);
-            }
-            const entries = rows.map(r => JSON.parse(r));
-            return res.json(entries);
-          });
-        },
-      },
-    },
-    '/scenarios/itemTimings/{hero_id}': {
-      get: {
-        summary: 'scenarios itemTimings',
-        description: 'scenarios itemTimings',
+        summary: 'Item timings',
+        description: 'Win rates for certain item timings',
         tags: ['scenarios'],
         parameters: [{
           name: 'item',
           in: 'query',
-          description: 'Item name',
+          description: 'Filter by item name',
           required: false,
           type: 'string',
         }],
@@ -3955,20 +3924,138 @@ Please keep request rate to approximately 3/s.
               items: {
                 type: 'object',
                 properties: {
+                  item: {
+                    description: 'Purchased item',
+                    type: 'string',
+                  },
+                  time: {
+                    description: 'Ingame time in seconds before the item was purchased',
+                    type: 'integer',
+                  },
+                  games: {
+                    description: 'In how many games was the item bought by this hero within that time',
+                    type: 'string',
+                  },
+                  wins: {
+                    description: 'How many games were won when this hero bought the item within that time',
+                    type: 'string',
+                  },
                 },
               },
             },
           },
         },
-        route: () => '/scenarios/itemTimings/:hero_id',
+        route: () => '/scenarios/:hero_id/itemTimings',
         func: (req, res, cb) => {
           const heroId = req.params.hero_id;
-          if (!heroId in constants.heroes) {
-            return cb(err);
-          }
-          const item = req.query.item in constants.items ? `AND item = '${req.query.item}'` : ''
+          const item = req.query.item in constants.items ? `AND item = '${req.query.item}'` : '';
+
           db.raw(`SELECT item, time, sum(games) games, sum(wins) wins 
-          FROM scenarios WHERE hero_id = ? ${item} GROUP BY item, time ORDER BY time, item`, [heroId])
+          FROM scenarios WHERE item IS NOT NULL AND hero_id = ? ${item} GROUP BY item, time ORDER BY time, item`, [heroId])
+            .asCallback((err, result) => {
+              if (err) {
+                return cb(err);
+              }
+              return res.json(result.rows);
+            });
+        },
+      },
+    },
+    '/scenarios/{hero_id}/laneRoles': {
+      get: {
+        summary: 'Lane roles',
+        description: 'Win rates for heroes in certain lane roles',
+        tags: ['scenarios'],
+        parameters: [],
+        responses: {
+          200: {
+            description: 'Success',
+            schema: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  lane_role: {
+                    description: 'The hero\'s lane role',
+                    type: 'integer',
+                  },
+                  time: {
+                    description: 'Total up to game length in seconds',
+                    type: 'integer',
+                  },
+                  games: {
+                    description: 'In how many games this hero was played in this lane role',
+                    type: 'string',
+                  },
+                  wins: {
+                    description: 'How many games the hero won when he played in this lane role',
+                    type: 'string',
+                  },
+                },
+              },
+            },
+          },
+        },
+        route: () => '/scenarios/:hero_id/laneRoles',
+        func: (req, res, cb) => {
+          const heroId = req.params.hero_id;
+
+          db.raw(`SELECT lane_role, time, sum(games) games, sum(wins) wins 
+          FROM scenarios WHERE lane_role IS NOT NULL and hero_id = ? GROUP BY lane_role, time ORDER BY time, lane_role`, [heroId])
+            .asCallback((err, result) => {
+              if (err) {
+                return cb(err);
+              }
+              return res.json(result.rows);
+            });
+        },
+      },
+    },
+    '/scenarios/team': {
+      get: {
+        summary: 'Team Scenarios',
+        description: 'Miscellaneous team scenarios',
+        tags: ['scenarios'],
+        parameters: [],
+        responses: {
+          200: {
+            description: 'Success',
+            schema: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  scenario: {
+                    description: 'The scenario\'s name or description',
+                    type: 'string',
+                  },
+                  is_radiant: {
+                    description: 'Radiant or Dire',
+                    type: 'boolean',
+                  },
+                  region: {
+                    decription: 'Region the game was played in',
+                    type: 'integer',
+                  },
+                  games: {
+                    description: 'In how many games scenario occured',
+                    type: 'string',
+                  },
+                  wins: {
+                    description: 'How many games won when scenario occured',
+                    type: 'string',
+                  },
+                },
+              },
+            },
+          },
+        },
+        route: () => '/scenarios/misc',
+        func: (req, res, cb) => {
+          const heroId = req.params.hero_id;
+
+          db.raw(`SELECT scenario, is_radiant, region, sum(games) games, sum(wins) wins 
+          from team_scenarios GROUP BY scenario, is_radiant, region ORDER BY scenario`)
             .asCallback((err, result) => {
               if (err) {
                 return cb(err);
