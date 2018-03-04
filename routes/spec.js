@@ -3966,9 +3966,9 @@ Please keep request rate to approximately 3/s.
           if (!heroId in constants.heroes) {
             return cb(err);
           }
-          const item = req.query.item in constants.item ? `AND item = ${req.query.item}` : ''
-          db.raw(`SELECT item, time, sum(games), sum(wins) 
-          FROM scenarios WHERE hero_id = ? ? GROUP BY item, time`, [heroId, item])
+          const item = req.query.item in constants.items ? `AND item = '${req.query.item}'` : ''
+          db.raw(`SELECT item, time, sum(games) games, sum(wins) wins 
+          FROM scenarios WHERE hero_id = ? ${item} GROUP BY item, time ORDER BY time, item`, [heroId])
             .asCallback((err, result) => {
               if (err) {
                 return cb(err);
