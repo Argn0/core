@@ -1324,10 +1324,6 @@ Please keep request rate to approximately 3/s.
                     description: 'Skill bracket assigned by Valve (Normal, High, Very High)',
                     type: 'integer',
                   },
-                  party_size: {
-                    description: "Size of the player's party",
-                    type: 'integer',
-                  },
                   heroes: {
                     description: 'heroes (requires ?project=heroes)',
                     type: 'object',
@@ -3936,6 +3932,49 @@ Please keep request rate to approximately 3/s.
             const entries = rows.map(r => JSON.parse(r));
             return res.json(entries);
           });
+        },
+      },
+    },
+    '/scenarios/itemTimings/{hero_id}': {
+      get: {
+        summary: 'scenarios itemTimings',
+        description: 'scenarios itemTimings',
+        tags: ['scenarios'],
+        parameters: [{
+          name: 'item',
+          in: 'query',
+          description: 'Item name',
+          required: false,
+          type: 'string',
+        }],
+        responses: {
+          200: {
+            description: 'Success',
+            schema: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                },
+              },
+            },
+          },
+        },
+        route: () => '/scenarios/itemTimings/:hero_id',
+        func: (req, res, cb) => {
+          const heroId = req.params.hero_id;
+          if (!heroId in constants.heroes) {
+            return cb(err);
+          }
+          const item = req.query.item in constants.item ? `AND item = ${req.query.item}` : ''
+          db.raw(`SELECT item, time, sum(games), sum(wins) 
+          FROM scenarios WHERE hero_id = ? ? GROUP BY item, time`, [heroId, item])
+            .asCallback((err, result) => {
+              if (err) {
+                return cb(err);
+              }
+              return res.json(result.rows);
+            });
         },
       },
     },
