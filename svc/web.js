@@ -68,7 +68,9 @@ app.use('/ugc', (req, res) => {
     } else {
       db.raw(`SELECT team_id FROM teams WHERE teams.logo_url ~ ?`, [req.originalUrl])
         .asCallback((err, result) => {
-          if (err) {}
+          if (err) {
+            console.error(err)
+          }
           let url;
           if (result.rows[0] && result.rows[0].team_id) {
             const teamId = result.rows[0].team_id
@@ -76,21 +78,21 @@ app.use('/ugc', (req, res) => {
           } else {
             url = `http://cloud-3.steamusercontent.com/${req.originalUrl}`
           }
-          const r = request(url)
-          r.pause()
-          r.on('response', function (resp) {
+          const stream = request(url)
+          stream.pause()
+          stream.on('response', function (resp) {
             if (resp.statusCode === 200) {
               resp.headers['content-type'] = 'image/png';
-              r.pipe(res)
-              r.resume()
-              redis.setex(`teamlogos:${req.originalUrl}`, 10, url);
+              stream.pipe(res)
+              stream.resume()
+              redis.setex(`teamlogos:${req.originalUrl}`, 30, url);
             } else {
               request(req.originalUrl)
                 .on('response', (resp) => {
                   resp.headers['content-type'] = 'image/png';
                 })
                 .pipe(res);
-              redis.setex(`teamlogos:${req.originalUrl}`, 10, req.originalUrl);
+              redis.setex(`teamlogos:${req.originalUrl}`, 30, req.originalUrl);
             }
           })
         });
