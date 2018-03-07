@@ -58,47 +58,45 @@ app.use('/apps', (req, res) => {
 });
 // Proxy to serve team logos over https
 app.use('/ugc', (req, res) => {
-      redis.get(`teamlogos:${req.originalUrl}`, (err, reply) => {
-        if (reply) {
-          request(reply)
-            .on('response', (resp) => {
+  redis.get(`teamlogos:${req.originalUrl}`, (err, reply) => {
+    if (reply) {
+      request(reply)
+        .on('response', (resp) => {
+          resp.headers['content-type'] = 'image/png';
+        })
+        .pipe(res);
+    } else {
+      db.raw(`SELECT team_id FROM teams WHERE teams.logo_url ~ ?`, [req.originalUrl])
+        .asCallback((err, result) => {
+          if (err) {}
+          let url;
+          if (result.rows[0] && result.rows[0].team_id) {
+            const teamId = result.rows[0].team_id
+            url = `http://steamcdn-a.akamaihd.net/apps/dota2/images/team_logos/${teamId}.png`
+          } else {
+            url = `http://cloud-3.steamusercontent.com/${req.originalUrl}`
+          }
+          const r = request(url)
+          r.pause()
+          r.on('response', function (resp) {
+            if (resp.statusCode === 200) {
               resp.headers['content-type'] = 'image/png';
-            })
-            .pipe(res);
-        } else {
-          db.raw(`SELECT team_id FROM teams WHERE teams.logo_url ~ ?`, [req.originalUrl])
-            .asCallback((err, result) => {
-              if (err) {}
-              let url;
-              if (result.rows[0] && result.rows[0].team_id) {
-                const teamId = result.rows[0].team_id
-                url = `http://steamcdn-a.akamaihd.net/apps/dota2/images/team_logos/${teamId}.png`
-              } else {
-                url = `http://cloud-3.steamusercontent.com/${req.originalUrl}`
-              }
-              request(url,
-                function (error, response, body) {
-                  if (response && response.statusCode !== 404 && !error) {
-                    response.on('response', (resp) => {
-                        resp.headers['content-type'] = 'image/png';
-                      })
-                      .pipe(res);
-                    redis.setex(`teamlogos:${req.originalUrl}`, 10, url);
-                  } else {
-                    url = `http://cloud-3.steamusercontent.com/${req.originalUrl}`
-                    request(url)
-                      .on('response', (resp) => {
-                        resp.headers['content-type'] = 'image/png';
-                      })
-                      .pipe(res);
-                    redis.setex(`teamlogos:${req.originalUrl}`, 10, url);
-                  }
-                }
-              )
-            });
-        }
-      });
-    })
+              r.pipe(res)
+              r.resume()
+              redis.setex(`teamlogos:${req.originalUrl}`, 10, url);
+            } else {
+              request(req.originalUrl)
+                .on('response', (resp) => {
+                  resp.headers['content-type'] = 'image/png';
+                })
+                .pipe(res);
+              redis.setex(`teamlogos:${req.originalUrl}`, 10, req.originalUrl);
+            }
+          })
+        });
+    }
+  });
+})
 // Session/Passport middleware
 app.use(session(sessOptions));
 app.use(passport.initialize());
