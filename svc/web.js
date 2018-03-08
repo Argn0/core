@@ -56,49 +56,21 @@ app.use(compression());
 app.use('/apps', (req, res) => {
   request(`http://cdn.dota2.com/${req.originalUrl}`).pipe(res);
 });
-// Proxy to serve team logos over https
+// Proxies to serve team logos over https
 app.use('/ugc', (req, res) => {
-  redis.get(`teamlogos:${req.originalUrl}`, (err, reply) => {
-    if (reply) {
-      request(reply)
-        .on('response', (resp) => {
-          resp.headers['content-type'] = 'image/png';
-        })
-        .pipe(res);
-    } else {
-      db.raw(`SELECT team_id FROM teams WHERE teams.logo_url ~ ?`, [req.originalUrl])
-        .asCallback((err, result) => {
-          if (err) {
-            console.error(err)
-          }
-          let url;
-          if (result.rows[0] && result.rows[0].team_id) {
-            const teamId = result.rows[0].team_id
-            url = `http://steamcdn-a.akamaihd.net/apps/dota2/images/team_logos/${teamId}.png`
-          } else {
-            url = `http://cloud-3.steamusercontent.com/${req.originalUrl}`
-          }
-          const stream = request(url)
-          stream.pause()
-          stream.on('response', function (resp) {
-            if (resp.statusCode === 200) {
-              resp.headers['content-type'] = 'image/png';
-              stream.pipe(res)
-              stream.resume()
-              redis.setex(`teamlogos:${req.originalUrl}`, 30, url);
-            } else {
-              request(req.originalUrl)
-                .on('response', (resp) => {
-                  resp.headers['content-type'] = 'image/png';
-                })
-                .pipe(res);
-              redis.setex(`teamlogos:${req.originalUrl}`, 30, req.originalUrl);
-            }
-          })
-        });
-    }
-  });
-})
+  request(`http://cloud-3.steamusercontent.com/${req.originalUrl}`)
+    .on('response', (resp) => {
+      resp.headers['content-type'] = 'image/png';
+    })
+    .pipe(res);
+});
+app.use('/apps/dota2/images/team_logos', (req, res) => {
+  request(`http://steamcdn-a.akamaihd.net/${req.originalUrl}`)
+    .on('response', (resp) => {
+      resp.headers['content-type'] = 'image/png';
+    })
+    .pipe(res);
+});
 // Session/Passport middleware
 app.use(session(sessOptions));
 app.use(passport.initialize());
