@@ -221,31 +221,7 @@ const playerObject = {
   },
 };
 
-const itemTimingsObject = {
-  type: 'array',
-  items: {
-    type: 'object',
-    properties: {
-      item: {
-        description: 'Purchased item',
-        type: 'string',
-      },
-      time: {
-        description: 'Ingame time in seconds before the item was purchased',
-        type: 'integer',
-      },
-      games: {
-        description: 'In how many games was the item bought by this hero within that time',
-        type: 'string',
-      },
-      wins: {
-        description: 'How many games were won when this hero bought the item within that time',
-        type: 'string',
-      },
-    },
-  },
-};
 
 module.exports = {
-  matchObject, teamObject, heroObject, playerObject, itemTimingsObject,
+  matchObject, teamObject, heroObject, playerObject,
 };
