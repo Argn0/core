@@ -13,14 +13,14 @@ const queryRaw = require('../store/queryRaw');
 const playerFields = require('./playerFields');
 const getGcData = require('../util/getGcData');
 const utility = require('../util/utility');
-const su = require('../util/scenariosUtil')
+const su = require('../util/scenariosUtil');
 const db = require('../store/db');
 const redis = require('../store/redis');
 const packageJson = require('../package.json');
 const cacheFunctions = require('../store/cacheFunctions');
 const params = require('./params');
 const {
-  teamObject, matchObject, heroObject, playerObject, itemTimingsObject,
+  teamObject, matchObject, heroObject, playerObject,
 } = require('./objects');
 
 const redisCount = utility.redisCount;
@@ -3907,7 +3907,7 @@ Please keep request rate to approximately 3/s.
     },
     '/scenarios/{hero_id}/itemTimings': {
       get: {
-        summary: 'Item timings',
+        summary: 'GET /scenarios/{hero_id}/itemTimings',
         description: 'Win rates for certain item timings',
         tags: ['scenarios'],
         parameters: [{
@@ -3916,7 +3916,15 @@ Please keep request rate to approximately 3/s.
           description: 'Filter by item name',
           required: false,
           type: 'string',
-        }],
+        },
+        {
+          name: 'hero_id',
+          in: 'path',
+          description: 'Hero ID',
+          required: true,
+          type: 'integer',
+        },
+        ],
         responses: {
           200: {
             description: 'Success',
@@ -3949,17 +3957,17 @@ Please keep request rate to approximately 3/s.
         route: () => '/scenarios/:hero_id/itemTimings',
         func: (req, res, cb) => {
           const heroId = req.params.hero_id;
-          const item = req.query.item
+          const item = req.query.item;
 
           if (item) {
-          db.raw(`SELECT item, time, sum(games) games, sum(wins) wins 
+            db.raw(`SELECT item, time, sum(games) games, sum(wins) wins 
           FROM scenarios WHERE item IS NOT NULL AND hero_id = ? AND item = ? GROUP BY item, time ORDER BY time, item`, [heroId, item])
-            .asCallback((err, result) => {
-              if (err) {
-                return cb(err);
-              }
-              return res.json(result.rows);
-            });
+              .asCallback((err, result) => {
+                if (err) {
+                  return cb(err);
+                }
+                return res.json(result.rows);
+              });
           }
           db.raw(`SELECT item, time, sum(games) games, sum(wins) wins 
           FROM scenarios WHERE item IS NOT NULL AND hero_id = ? GROUP BY item, time ORDER BY time, item`, [heroId])
@@ -3974,10 +3982,10 @@ Please keep request rate to approximately 3/s.
     },
     '/scenarios/{hero_id}/laneRoles': {
       get: {
-        summary: 'Lane roles',
+        summary: 'GET /scenarios/{hero_id}/laneRoles',
         description: 'Win rates for heroes in certain lane roles',
         tags: ['scenarios'],
-        parameters: [],
+        parameters: [params.heroIdParamPath],
         responses: {
           200: {
             description: 'Success',
@@ -4022,15 +4030,15 @@ Please keep request rate to approximately 3/s.
         },
       },
     },
-    '/scenarios/team': {
+    '/scenarios/misc': {
       get: {
-        summary: 'Team Scenarios',
+        summary: 'GET /scenarios/misc',
         description: 'Miscellaneous team scenarios',
         tags: ['scenarios'],
         parameters: [{
           name: 'scenario',
           in: 'query',
-          description: JSON.stringify(su.teamScenariosQueryParams, null, ' '),
+          description: Object.keys(su.teamScenariosQueryParams).toString(),
           required: true,
           type: 'string',
         }],
@@ -4069,9 +4077,7 @@ Please keep request rate to approximately 3/s.
         },
         route: () => '/scenarios/misc',
         func: (req, res, cb) => {
-          const heroId = req.params.hero_id;
-          const scenario = su.teamScenariosQueryParams[req.query.scenario]
-          console.error(scenario)
+          const scenario = su.teamScenariosQueryParams[req.query.scenario];
 
           db.raw(`SELECT scenario, is_radiant, region, sum(games) games, sum(wins) wins 
           from team_scenarios WHERE scenario = ? GROUP BY scenario, is_radiant, region ORDER BY scenario`, [scenario])
