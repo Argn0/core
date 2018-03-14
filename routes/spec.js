@@ -13,6 +13,7 @@ const queryRaw = require('../store/queryRaw');
 const playerFields = require('./playerFields');
 const getGcData = require('../util/getGcData');
 const utility = require('../util/utility');
+const su = require('../util/scenariosUtil')
 const db = require('../store/db');
 const redis = require('../store/redis');
 const packageJson = require('../package.json');
@@ -3948,10 +3949,20 @@ Please keep request rate to approximately 3/s.
         route: () => '/scenarios/:hero_id/itemTimings',
         func: (req, res, cb) => {
           const heroId = req.params.hero_id;
-          const item = req.query.item in constants.items ? `AND item = '${req.query.item}'` : '';
+          const item = req.query.item
 
+          if (item) {
           db.raw(`SELECT item, time, sum(games) games, sum(wins) wins 
-          FROM scenarios WHERE item IS NOT NULL AND hero_id = ? ${item} GROUP BY item, time ORDER BY time, item`, [heroId])
+          FROM scenarios WHERE item IS NOT NULL AND hero_id = ? AND item = ? GROUP BY item, time ORDER BY time, item`, [heroId, item])
+            .asCallback((err, result) => {
+              if (err) {
+                return cb(err);
+              }
+              return res.json(result.rows);
+            });
+          }
+          db.raw(`SELECT item, time, sum(games) games, sum(wins) wins 
+          FROM scenarios WHERE item IS NOT NULL AND hero_id = ? GROUP BY item, time ORDER BY time, item`, [heroId])
             .asCallback((err, result) => {
               if (err) {
                 return cb(err);
@@ -4016,7 +4027,13 @@ Please keep request rate to approximately 3/s.
         summary: 'Team Scenarios',
         description: 'Miscellaneous team scenarios',
         tags: ['scenarios'],
-        parameters: [],
+        parameters: [{
+          name: 'scenario',
+          in: 'query',
+          description: JSON.stringify(su.teamScenariosQueryParams, null, ' '),
+          required: true,
+          type: 'string',
+        }],
         responses: {
           200: {
             description: 'Success',
@@ -4053,9 +4070,11 @@ Please keep request rate to approximately 3/s.
         route: () => '/scenarios/misc',
         func: (req, res, cb) => {
           const heroId = req.params.hero_id;
+          const scenario = su.teamScenariosQueryParams[req.query.scenario]
+          console.error(scenario)
 
           db.raw(`SELECT scenario, is_radiant, region, sum(games) games, sum(wins) wins 
-          from team_scenarios GROUP BY scenario, is_radiant, region ORDER BY scenario`)
+          from team_scenarios WHERE scenario = ? GROUP BY scenario, is_radiant, region ORDER BY scenario`, [scenario])
             .asCallback((err, result) => {
               if (err) {
                 return cb(err);
