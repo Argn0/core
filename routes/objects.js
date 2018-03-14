@@ -221,7 +221,6 @@ const playerObject = {
   },
 };
 
-
 module.exports = {
   matchObject, teamObject, heroObject, playerObject,
 };
